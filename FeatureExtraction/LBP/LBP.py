@@ -1,5 +1,4 @@
 import math
-import multiprocessing
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -41,6 +40,7 @@ class ImgProcess:
             for i in range(row):
                 for j in range(col):
                     img.frequency[int(img.lbp_uniform[i, j])] += 1
+                    print(img.lbp_uniform[i, j])
 
     @staticmethod
     def get_local_frequency(img: Img):
@@ -79,26 +79,31 @@ class ImgProcess:
         sampling_points = img.sampling_points
         scale = math.pow(2, 8) / math.pow(2, sampling_points)
         row, col = img_matrix.shape
+        print(row, col, row - radius, col - radius)
 
         lbp_min_ror = np.zeros((row - 2 * radius, col - 2 * radius))
         lbp_uniform = np.zeros((row - 2 * radius, col - 2 * radius))
         texture = np.zeros((row - 2 * radius, col - 2 * radius))
         for i in range(radius, row - radius):
-            print(i)
+
             for j in range(radius, col - radius):
+                print(i, j)
                 point = img_matrix[i, j]
                 value = 0
                 for p in range(0, sampling_points):
                     x_p = i + radius * math.sin(2 * math.pi * p / sampling_points)
                     y_p = j - radius * math.cos(2 * math.pi * p / sampling_points)
-                    x_0 = math.floor(x_p)
-                    y_0 = math.floor(y_p)
-                    x_1 = math.ceil(x_p)
-                    y_1 = math.ceil(y_p)
-                    value_p = (np.matrix([y_p - y_0, y_1 - y_p]) @
-                               np.matrix([[img_matrix[x_0, y_0], img_matrix[x_1, y_0]],
-                                          [img_matrix[x_0, y_1], img_matrix[x_1, y_1]]]) @
-                               np.matrix([[x_p - x_0], [x_1 - x_p]]))
+                    if (x_p - int(x_p)) == 0 and (y_p - int(y_p)) == 0:
+                        value_p = img_matrix[int(x_p), int(y_p)]
+                    else:
+                        x_0 = math.floor(x_p)
+                        y_0 = math.floor(y_p)
+                        x_1 = math.floor(x_p + 1 * math.copysign(1, (i - x_p)))
+                        y_1 = math.floor(y_p + 1 * math.copysign(1, (j - y_p)))
+                        value_p = abs((np.matrix([y_p - y_0, y_1 - y_p]) @
+                                       np.matrix([[img_matrix[x_0, y_0], img_matrix[x_1, y_0]],
+                                                  [img_matrix[x_0, y_1], img_matrix[x_1, y_1]]]) @
+                                       np.matrix([[x_p - x_0], [x_1 - x_p]]))[0, 0])
                     num = 1 if value_p > point else 0
                     value = (value << 1) | num
                 texture[i - radius, j - radius] = np.int8(ImgProcess.get_min(value, sampling_points) * scale)
@@ -118,7 +123,8 @@ class ImgProcess:
         j = 0
         while i < row_boundary:
             while j < col_boundary:
-                local_img = Img(img.img_matrix[i:i+splitting_size, j:j+splitting_size], img.radius, img.sampling_points)
+                local_img = Img(img.img_matrix[i:i + splitting_size, j:j + splitting_size], img.radius,
+                                img.sampling_points)
                 imgs_split.append(local_img)
                 j += splitting_size
             i += splitting_size
@@ -163,7 +169,7 @@ class ImgProcess:
                     hash_patterns[str(tmp)] = sample_points + 1
                     used.add(tmp)
 
-        return hash_patterns, list(range(0, sample_points+2))
+        return hash_patterns, list(range(0, sample_points + 2))
 
     @staticmethod
     def get_num_of_one_bit(binary_string):
@@ -179,14 +185,14 @@ class ImgProcess:
         plt.imshow(img_matrix, cmap='gray')
 
 
-def test_improve(img: Img):
+def mytest_improve(img: Img):
     ImgProcess.lbp_improved(img)
     ImgProcess.img_show(img.texture_img_matrix)
     ImgProcess.get_global_frequency(img)
     # plt.savefig('./pic/result/' + str(img.radius) + '_' + str(img.sampling_points) + '.png')
 
 
-def test_basic(img):
+def mytest_basic(img):
     ImgProcess.lbp_basic(img)
     # ImgProcess.img_show(img.texture_img_matrix)
     ImgProcess.get_global_frequency(img)
@@ -194,9 +200,10 @@ def test_basic(img):
 
 
 if __name__ == '__main__':
+    # print(ImgProcess.get_patterns(8))
     t_matrix = ImgProcess.img_preprocessing("./pic/test/3.jpg")
     test1 = Img(t_matrix, radius=1, sampling_points=8)
-    test_improve(test1)
+    mytest_improve(test1)
     # test2 = Img(t_matrix, radius=2, sampling_points=16)
     # test3 = Img(t_matrix, radius=3, sampling_points=24)
     # test1_process = multiprocessing.Process(target=test_improve, args=(test1, ))
@@ -206,4 +213,6 @@ if __name__ == '__main__':
     # test1_process.start()
     # test2_process.start()
     # test3_process.start()
+    print(test1.frequency)
     plt.bar(x=test1.uniform_patterns, height=list(map(lambda x: x/sum(test1.frequency), test1.frequency)), width=0.3)
+    plt.show()
